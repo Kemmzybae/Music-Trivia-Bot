@@ -1,0 +1,12 @@
+[phases.setup]
+# nodejs_20  — runtime
+# ffmpeg     — audio transcoding for @discordjs/voice
+# python3, gcc, gnumake — needed only if you swap opusscript for
+#   @discordjs/opus (native addon). Safe to keep even if unused.
+nixPkgs = ["nodejs_20", "ffmpeg", "python3", "gcc", "gnumake"]
+
+[phases.install]
+cmds = ["npm install"]
+
+[start]
+cmd = "npm start"

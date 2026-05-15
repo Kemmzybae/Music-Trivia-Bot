@@ -1,0 +1,28 @@
+{
+  "name": "music-trivia-bot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "dev": "tsx src/index.ts",
+    "db:push": "drizzle-kit push --config drizzle.config.ts"
+  },
+  "dependencies": {
+    "@discordjs/voice": "^0.19.2",
+    "discord.js": "^14.26.4",
+    "drizzle-orm": "^0.45.2",
+    "ffmpeg-static": "^5.2.0",
+    "opusscript": "^0.1.1",
+    "pg": "^8.20.0",
+    "play-dl": "^1.9.7"
+  },
+  "devDependencies": {
+    "@types/ffmpeg-static": "^3.0.3",
+    "@types/node": "^20.0.0",
+    "@types/pg": "^8.20.0",
+    "drizzle-kit": "^0.31.10",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.0"
+  }
+}
