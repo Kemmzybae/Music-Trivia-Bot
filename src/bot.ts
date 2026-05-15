@@ -11,6 +11,7 @@ import {
   ButtonInteraction,
   InteractionType,
   type Interaction,
+  type Message,
 } from "discord.js";
 import {
   joinVoiceChannel,
@@ -39,7 +40,7 @@ interface ActiveRound {
   guildId: string;
   responses: Map<string, { username: string; choiceIndex: number; timeMs: number }>;
   timer: ReturnType<typeof setTimeout>;
-  interaction: ChatInputCommandInteraction;
+  message: Message;
 }
 
 const activeRounds = new Map<string, ActiveRound>();
@@ -228,7 +229,18 @@ async function handleQuizCommand(interaction: ChatInputCommandInteraction): Prom
 
   const embed = buildQuizEmbed(allChoices, correctSong.youtubeUrl, voiceAttempted);
   const row = buildButtonRow(allChoices);
-  await interaction.reply({ embeds: [embed], components: [row] });
+
+  let message: Message;
+  try {
+    message = await interaction.reply({ embeds: [embed], components: [row], fetchReply: true });
+  } catch {
+    if (!interaction.channel?.isTextBased()) {
+      console.error("[quiz] Interaction expired and no text channel available");
+      return;
+    }
+    console.warn("[quiz] Interaction expired — falling back to channel.send()");
+    message = await interaction.channel.send({ embeds: [embed], components: [row] });
+  }
 
   const round: ActiveRound = {
     correctSong,
@@ -237,7 +249,7 @@ async function handleQuizCommand(interaction: ChatInputCommandInteraction): Prom
     startTime: Date.now(),
     guildId,
     responses: new Map(),
-    interaction,
+    message,
     timer: setTimeout(() => endRound(guildId), QUIZ_DURATION_MS),
   };
   activeRounds.set(guildId, round);
@@ -344,7 +356,7 @@ async function endRound(guildId: string, skippedBy?: string): Promise<void> {
   });
 
   try {
-    await round.interaction.editReply({ embeds: [embed], components: [disabledRow] });
+    await round.message.edit({ embeds: [embed], components: [disabledRow] });
   } catch {
     // Message may have been deleted
   }
