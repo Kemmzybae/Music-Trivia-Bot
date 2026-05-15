@@ -192,28 +192,28 @@ async function handleQuizCommand(interaction: ChatInputCommandInteraction): Prom
 
   const member = interaction.member as GuildMember;
   const voiceChannel = member?.voice?.channel as VoiceChannel | null;
+const voiceAttempted = voiceChannel !== null;
+if (voiceChannel) {
+  tryVoicePlayback(correctSong, voiceChannel).catch(err => {
+    console.error("[voice] Unexpected error:", err);
+  });
+}
 
-  const voiceAttempted = voiceChannel !== null;
-  if (voiceChannel) {
-    tryVoicePlayback(correctSong, voiceChannel).catch((err) => {
-      console.error("[voice] Unexpected error:", err);
-    });
-  }
+const embed = buildQuizEmbed(allChoices, correctSong.youtubeUrl, voiceAttempted);
+const row = buildButtonRow(allChoices);
+await interaction.editReply({ embeds: [embed], components: [row] });
 
-  const embed = buildQuizEmbed(allChoices, correctSong.youtubeUrl, voiceAttempted);
-  const row = buildButtonRow(allChoices);
-  await interaction.editReply({ embeds: [embed], components: [row] });
-
-  const round: ActiveRound = {
-    correctSong,
-    choices: allChoices,
-    correctIndex,
-    startTime: Date.now(),
-    guildId,
-    responses: new Map(),
-    interaction,
-    timer: setTimeout(() => endRound(guildId), QUIZ_DURATION_MS),
-  };
+const round: ActiveRound = {
+  correctSong,
+  choices: allChoices,
+  correctIndex,
+  startTime: Date.now(),
+  guildId,
+  responses: new Map(),
+  interaction,
+  timer: setTimeout(() => endRound(guildId), QUIZ_DURATION_MS),
+};
+  
 
   activeRounds.set(guildId, round);
 }
@@ -243,7 +243,38 @@ async function handleButtonInteraction(interaction: ButtonInteraction): Promise<
   round.responses.set(userId, {
     username: interaction.user.displayName ?? interaction.user.username,
     choiceIndex,
-    timeMs,
+    timawait interaction.deferReply();
+
+const correctSong = getRandomSong();
+const wrongChoices = getWrongChoices(correctSong, 2);
+const allChoices = [...];
+const correctIndex = [...];
+
+const embed = buildQuizEmbed(...);
+const row = buildButtonRow(allChoices);
+
+// 1. Set the round FIRST
+const round: ActiveRound = {
+  correctSong,
+  choices: allChoices,
+  correctIndex,
+  startTime: Date.now(),
+  guildId,
+  responses: new Map(),
+  interaction,
+  timer: setTimeout(() => endRound(guildId), QUIZ_DURATION_MS),
+};
+activeRounds.set(guildId, round);
+
+// 2. Reply SECOND
+await interaction.editReply({ embeds: [embed], components: [row] });
+
+// 3. Voice LAST (fire and forget)
+if (voiceChannel) {
+  tryVoicePlayback(correctSong, voiceChannel).catch(err => {
+    console.error("[voice] Unexpected error:", err);
+  });
+}eMs,
   });
 
   const isCorrect = choiceIndex === round.correctIndex;
