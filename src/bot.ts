@@ -115,18 +115,22 @@ async function tryVoicePlayback(song: SongEntry, voiceChannel: VoiceChannel): Pr
       "-f", "bestaudio",
       "-o", "-",
       "--no-playlist",
-      "--quiet",
+      "--extractor-args", "youtube:player_client=tv,ios",
       song.youtubeUrl,
     ]);
 
-    ytdlp.stderr.on("data", (d) => console.warn("[yt-dlp]", d.toString()));
+    ytdlp.stderr.on("data", (d) => console.warn("[yt-dlp stderr]", d.toString().trim()));
+    ytdlp.on("error", (err) => console.error("[yt-dlp] Failed to spawn:", err.message));
+    ytdlp.on("close", (code) => {
+      if (code !== 0) console.error(`[yt-dlp] Exited with code ${code}`);
+    });
 
     const resource = createAudioResource(ytdlp.stdout, {
       inputType: StreamType.Arbitrary,
     });
 
     const player = createAudioPlayer();
-    player.on("error", (err) => console.warn("[voice] Player error:", err.message));
+    player.on("error", (err) => console.error("[voice] Player error:", err.message));
     player.on(AudioPlayerStatus.Idle, () => {
       getVoiceConnection(guildId)?.destroy();
     });
