@@ -68,3 +68,12 @@ export async function getTopLeaderboard(limit = 10) {
     .orderBy(desc(leaderboardTable.wins), desc(leaderboardTable.correctAnswers))
     .limit(limit);
 }
+
+export async function getPlayerStats(discordUserId: string) {
+  const rows = await db
+    .select()
+    .from(leaderboardTable)
+    .where(eq(leaderboardTable.discordUserId, discordUserId))
+    .limit(1);
+  return rows.length > 0 ? rows[0] : null;
+}

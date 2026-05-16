@@ -28,7 +28,7 @@ import { spawn } from "child_process";
 import { Readable } from "stream";
 import ffmpegPath from "ffmpeg-static";
 import { getRandomSong, getWrongChoices, type SongEntry, SONGS } from "./songs.js";
-import { recordAnswer, recordWin, getTopLeaderboard } from "./leaderboard.js";
+import { recordAnswer, recordWin, getTopLeaderboard, getPlayerStats } from "./leaderboard.js";
 import { registerCommands } from "./register-commands.js";
 import {
   addSong,
@@ -83,6 +83,7 @@ export function createBot(): Client {
         else if (cmd.commandName === "addsong") await handleAddSongCommand(cmd);
         else if (cmd.commandName === "removesong") await handleRemoveSongCommand(cmd);
         else if (cmd.commandName === "listsongs") await handleListSongsCommand(cmd);
+        else if (cmd.commandName === "stats") await handleStatsCommand(cmd);
       } else if (interaction.isButton()) {
         await handleButtonInteraction(interaction as ButtonInteraction);
       }
@@ -502,6 +503,47 @@ async function handleListSongsCommand(interaction: ChatInputCommandInteraction):
     .setTitle(`🎵 Custom Song Library (${songs.length} songs)`)
     .setDescription(pages[0])
     .setFooter({ text: pages.length > 1 ? `Showing 1–${Math.min(PAGE_SIZE, songs.length)} of ${songs.length}` : `${songs.length} song${songs.length === 1 ? "" : "s"} · Use /addsong or /removesong to manage` });
+
+  await interaction.editReply({ embeds: [embed] });
+}
+
+async function handleStatsCommand(interaction: ChatInputCommandInteraction): Promise<void> {
+  await interaction.deferReply();
+
+  const target = interaction.options.getUser("player") ?? interaction.user;
+  const stats = await getPlayerStats(target.id);
+
+  if (!stats) {
+    const isSelf = target.id === interaction.user.id;
+    await interaction.editReply(
+      isSelf
+        ? "📊 You haven't played any rounds yet — start one with `/quiz`!"
+        : `📊 **${target.displayName ?? target.username}** hasn't played any rounds yet.`,
+    );
+    return;
+  }
+
+  const accuracy = stats.totalAnswers > 0
+    ? Math.round((stats.correctAnswers / stats.totalAnswers) * 100)
+    : 0;
+  const best = stats.bestTimeMs !== null ? `${(stats.bestTimeMs / 1000).toFixed(2)}s` : "—";
+  const winRate = stats.totalAnswers > 0
+    ? Math.round((stats.wins / stats.totalAnswers) * 100)
+    : 0;
+
+  const embed = new EmbedBuilder()
+    .setColor(0x57f287)
+    .setTitle(`📊 Stats for ${stats.username}`)
+    .setThumbnail(target.displayAvatarURL())
+    .addFields(
+      { name: "🏆 Wins", value: `${stats.wins}`, inline: true },
+      { name: "✅ Correct Answers", value: `${stats.correctAnswers} / ${stats.totalAnswers}`, inline: true },
+      { name: "🎯 Accuracy", value: `${accuracy}%`, inline: true },
+      { name: "⚡ Best Answer Time", value: best, inline: true },
+      { name: "📈 Win Rate", value: `${winRate}%`, inline: true },
+    )
+    .setTimestamp()
+    .setFooter({ text: "Play more rounds with /quiz!" });
 
   await interaction.editReply({ embeds: [embed] });
 }

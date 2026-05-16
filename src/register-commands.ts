@@ -37,6 +37,13 @@ const commands = [
     .setName("listsongs")
     .setDescription("List all songs in the custom quiz library.")
     .toJSON(),
+  new SlashCommandBuilder()
+    .setName("stats")
+    .setDescription("Show a player's personal quiz stats.")
+    .addUserOption((o) =>
+      o.setName("player").setDescription("The player to look up (defaults to you)").setRequired(false),
+    )
+    .toJSON(),
 ];
 
 export async function registerCommands(): Promise<void> {
