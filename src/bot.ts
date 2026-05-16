@@ -25,6 +25,7 @@ import {
   type VoiceConnection,
 } from "@discordjs/voice";
 import { spawn } from "child_process";
+import { writeFileSync } from "fs";
 import { getRandomSong, getWrongChoices, type SongEntry } from "./songs.js";
 import { recordAnswer, recordWin, getTopLeaderboard } from "./leaderboard.js";
 import { registerCommands } from "./register-commands.js";
@@ -93,7 +94,8 @@ export function createBot(): Client {
 function getStreamUrl(youtubeUrl: string): Promise<string> {
   return new Promise((resolve, reject) => {
 const cookieFile = process.env.YOUTUBE_COOKIE ? "/tmp/yc.txt" : null;
-    if (cookieFile) require("fs").writeFileSync(cookieFile, process.env.YOUTUBE_COOKIE!);
+    if (cookieFile) writeFileSync(cookieFile, process.env.YOUTUBE_COOKIE!);
+    
     const proc = spawn("yt-dlp", [
       "--get-url",
       "-f", "bestaudio",
