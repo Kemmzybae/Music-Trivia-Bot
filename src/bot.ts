@@ -24,8 +24,6 @@ import {
   AudioPlayerStatus,
   type VoiceConnection,
 } from "@discordjs/voice";
-import { spawn } from "child_process";
-import { writeFileSync } from "fs";
 import { getRandomSong, getWrongChoices, type SongEntry } from "./songs.js";
 import { recordAnswer, recordWin, getTopLeaderboard } from "./leaderboard.js";
 import { registerCommands } from "./register-commands.js";
@@ -91,7 +89,7 @@ export function createBot(): Client {
   return client;
 }
 
-async function getStreamUrl(song: SongEntry): Promise<string> {
+async function getDeezerPreviewUrl(song: SongEntry): Promise<string> {
   const query = encodeURIComponent(song.title + " " + song.artist);
   const res = await fetch("https://api.deezer.com/search?q=" + query + "&limit=1");
   const data = await res.json() as any;
@@ -384,4 +382,4 @@ async function handleLeaderboardCommand(interaction: ChatInputCommandInteraction
     .setFooter({ text: "Play with /quiz!" });
 
   await interaction.editReply({ embeds: [embed] });
-    }
+}
