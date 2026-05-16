@@ -92,17 +92,33 @@ export function createBot(): Client {
   return client;
 }
 
-async function getDeezerPreviewUrl(song: SongEntry): Promise<string> {
-  const query = encodeURIComponent(song.title + " " + song.artist);
-  const res = await fetch("https://api.deezer.com/search?q=" + query + "&limit=1");
-  const data = await res.json() as any;
-  if (!data.data || data.data.length === 0) throw new Error("No Deezer results");
-  const preview = data.data[0].preview;
-  if (!preview) throw new Error("No preview URL");
-  return preview;
+async function getDeezerPreviewUrl(song: SongEntry): Promise<string | null> {
+  try {
+    const query = encodeURIComponent(song.title + " " + song.artist);
+    const res = await fetch("https://api.deezer.com/search?q=" + query + "&limit=1");
+    const data = await res.json() as any;
+    if (!data.data || data.data.length === 0) return null;
+    const preview = data.data[0].preview;
+    if (!preview) return null;
+    return preview;
+  } catch {
+    return null;
+  }
 }
 
-async function tryVoicePlayback(song: SongEntry, voiceChannel: VoiceChannel): Promise<void> {
+async function pickSongWithPreview(maxAttempts = 5): Promise<{ song: SongEntry; previewUrl: string } | null> {
+  for (let i = 0; i < maxAttempts; i++) {
+    const song = getRandomSong();
+    const previewUrl = await getDeezerPreviewUrl(song);
+    if (previewUrl) {
+      return { song, previewUrl };
+    }
+    console.warn(`[quiz] No preview for "${song.title}" — trying another song (attempt ${i + 1}/${maxAttempts})`);
+  }
+  return null;
+}
+
+async function tryVoicePlayback(song: SongEntry, voiceChannel: VoiceChannel, previewUrl: string): Promise<void> {
   const guildId = voiceChannel.guild.id;
   let connection: VoiceConnection;
 
@@ -140,9 +156,9 @@ async function tryVoicePlayback(song: SongEntry, voiceChannel: VoiceChannel): Pr
     });
 
     await entersState(connection, VoiceConnectionStatus.Ready, VOICE_CONNECT_TIMEOUT_MS);
-    console.log("[voice] Connection ready — fetching stream URL");
+    console.log("[voice] Connection ready — fetching audio stream");
 
-    const streamUrl = await getDeezerPreviewUrl(song);
+    const streamUrl = previewUrl;
     console.log("[voice] Got stream URL, piping through ffmpeg");
 
     const response = await fetch(streamUrl);
@@ -229,7 +245,13 @@ async function handleQuizCommand(interaction: ChatInputCommandInteraction): Prom
     return;
   }
 
-  const correctSong = getRandomSong();
+  const picked = await pickSongWithPreview(5);
+  if (!picked) {
+    await interaction.reply({ content: "❌ Couldn't find a song with an audio preview right now — please try again!", ephemeral: true });
+    return;
+  }
+  const { song: correctSong, previewUrl } = picked;
+
   const wrongChoices = getWrongChoices(correctSong, 2);
   const allChoices = [correctSong, ...wrongChoices].sort(() => Math.random() - 0.5);
   const correctIndex = allChoices.findIndex((s) => s.title === correctSong.title);
@@ -266,7 +288,7 @@ async function handleQuizCommand(interaction: ChatInputCommandInteraction): Prom
   activeRounds.set(guildId, round);
 
   if (voiceChannel) {
-    tryVoicePlayback(correctSong, voiceChannel).catch((err) => {
+    tryVoicePlayback(correctSong, voiceChannel, previewUrl).catch((err) => {
       console.error("[voice] Unexpected error:", err);
     });
   }
