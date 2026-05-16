@@ -108,8 +108,7 @@ const cookieFile = process.env.YOUTUBE_COOKIE ? "/tmp/yc.txt" : null;
     const proc = spawn("yt-dlp", [
       "--get-url",
       "-f", "bestaudio",
-      "--no-playlist",
-      "--extractor-args", "youtube:player_client=tv,ios",
+      "--extractor-args", "youtube:player_client=tv",
 ...(cookieFile ? ["--cookies", cookieFile] : []),
 youtubeUrl,
     ]);
