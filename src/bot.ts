@@ -32,7 +32,7 @@ import { recordAnswer, recordWin, getTopLeaderboard } from "./leaderboard.js";
 import { registerCommands } from "./register-commands.js";
 
 const QUIZ_DURATION_MS = 10_000;
-const VOICE_CONNECT_TIMEOUT_MS = 6_000;
+const VOICE_CONNECT_TIMEOUT_MS = 15_000;
 const CHOICES = ["A", "B", "C"] as const;
 
 interface ActiveRound {
@@ -138,9 +138,16 @@ async function tryVoicePlayback(song: SongEntry, voiceChannel: VoiceChannel, pre
       selfMute: false,
     });
 
-    // Destroy immediately on disconnect — this is a one-shot playback, no reconnect needed
-    connection.on(VoiceConnectionStatus.Disconnected, () => {
-      destroyVoiceConnection(guildId);
+    // On disconnect, give it 5s to recover into a reconnecting state before destroying
+    connection.on(VoiceConnectionStatus.Disconnected, async () => {
+      try {
+        await Promise.race([
+          entersState(connection!, VoiceConnectionStatus.Signalling, 5_000),
+          entersState(connection!, VoiceConnectionStatus.Connecting, 5_000),
+        ]);
+      } catch {
+        destroyVoiceConnection(guildId);
+      }
     });
 
     const NOISY_STATES = new Set([VoiceConnectionStatus.Connecting, VoiceConnectionStatus.Signalling]);
