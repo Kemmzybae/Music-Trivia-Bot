@@ -122,8 +122,14 @@ async function tryVoicePlayback(song: SongEntry, voiceChannel: VoiceChannel): Pr
     });
 
     connection.on("stateChange", (oldState, newState) => {
-  console.log(`[voice] ${oldState.status} → ${newState.status}`);
-});
+      console.log(`[voice] ${oldState.status} → ${newState.status}`);
+    });
+
+    await entersState(connection, VoiceConnectionStatus.Ready, VOICE_CONNECT_TIMEOUT_MS);
+    console.log("[voice] Connection ready — fetching stream URL");
+
+    const streamUrl = await getDeezerPreviewUrl(song);
+    console.log("[voice] Got stream URL, starting playback");
 
     const resource = createAudioResource(streamUrl, {
       inputType: StreamType.Arbitrary,
@@ -140,15 +146,15 @@ async function tryVoicePlayback(song: SongEntry, voiceChannel: VoiceChannel): Pr
     console.log(`[voice] Now playing: ${song.title}`);
   } catch (err) {
     console.error("[voice] Stream error:", (err as Error).message);
-    connection.destroy();
+    try { connection!.destroy(); } catch { /* already destroyed */ }
   }
 }
 // ───────────────────────────────────────────────────────────────────────────
 
 function buildQuizEmbed(choices: SongEntry[], songUrl: string, voiceAttempted: boolean): EmbedBuilder {
   const listenLine = voiceAttempted
-    ? `🔊 **Playing in your voice channel** *(or use the link)*: [▶ YouTube](${songUrl})`
-    : `▶️ **Open and listen**: [▶ YouTube](${songUrl})`;
+    ? `🔊 **Playing in your voice channel** *(or use the link)*: [▶ Listen](${songUrl})`
+    : `▶️ **Open and listen**: [▶ Listen](${songUrl})`;
 
   return new EmbedBuilder()
     .setColor(0x5865f2)
