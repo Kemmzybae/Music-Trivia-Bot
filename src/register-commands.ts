@@ -61,6 +61,13 @@ const commands = [
     .setDescription("Show the all-time hall of fame for challenge mode.")
     .toJSON(),
   new SlashCommandBuilder()
+    .setName("challengestats")
+    .setDescription("Show a player's personal challenge mode stats.")
+    .addUserOption((o) =>
+      o.setName("player").setDescription("The player to look up (defaults to you)").setRequired(false),
+    )
+    .toJSON(),
+  new SlashCommandBuilder()
     .setName("endchallenge")
     .setDescription("Force-stop a running challenge. Staff only.")
     .toJSON(),

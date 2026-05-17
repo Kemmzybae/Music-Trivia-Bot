@@ -30,7 +30,7 @@ import ffmpegPath from "ffmpeg-static";
 import { getRandomSong, getWrongChoices, type SongEntry, SONGS } from "./songs.js";
 import { recordAnswer, recordWin, getTopLeaderboard, getPlayerStats, resetLeaderboard } from "./leaderboard.js";
 import { startChallenge, forceEndChallenge, handleChallengeButton } from "./challenge.js";
-import { getTopChallengeLeaderboard } from "./challenge-leaderboard.js";
+import { getTopChallengeLeaderboard, getChallengePlayerStats } from "./challenge-leaderboard.js";
 import { registerCommands } from "./register-commands.js";
 import {
   addSong,
@@ -93,6 +93,7 @@ export function createBot(): Client {
         else if (cmd.commandName === "challenge") await handleChallengeCommand(cmd);
         else if (cmd.commandName === "endchallenge") await handleEndChallengeCommand(cmd);
         else if (cmd.commandName === "challengeleaderboard") await handleChallengeLeaderboardCommand(cmd);
+        else if (cmd.commandName === "challengestats") await handleChallengeStatsCommand(cmd);
       } else if (interaction.isButton()) {
         await handleButtonInteraction(interaction as ButtonInteraction);
       }
@@ -743,6 +744,50 @@ async function handleChallengeLeaderboardCommand(interaction: ChatInputCommandIn
     .setDescription(rows.join("\n"))
     .setTimestamp()
     .setFooter({ text: "Ranked by challenge wins · Ties broken by total correct answers" });
+
+  await interaction.editReply({ embeds: [embed] });
+}
+
+async function handleChallengeStatsCommand(interaction: ChatInputCommandInteraction): Promise<void> {
+  await interaction.deferReply();
+
+  const target = interaction.options.getUser("player") ?? interaction.user;
+  const stats = await getChallengePlayerStats(target.id);
+
+  if (!stats) {
+    const isSelf = target.id === interaction.user.id;
+    await interaction.editReply(
+      isSelf
+        ? "📊 You haven't completed any challenges yet — start one with `/challenge`!"
+        : `📊 **${target.displayName ?? target.username}** hasn't completed any challenges yet.`,
+    );
+    return;
+  }
+
+  const accuracy = stats.totalAnswers > 0
+    ? Math.round((stats.totalCorrect / stats.totalAnswers) * 100)
+    : 0;
+  const best = stats.bestAvgTimeMs !== null
+    ? `${(stats.bestAvgTimeMs / 1000).toFixed(2)}s`
+    : "—";
+  const winRate = stats.totalParticipated > 0
+    ? Math.round((stats.challengeWins / stats.totalParticipated) * 100)
+    : 0;
+
+  const embed = new EmbedBuilder()
+    .setColor(0x5865f2)
+    .setTitle(`📊 Challenge Stats for ${stats.username}`)
+    .setThumbnail(target.displayAvatarURL())
+    .addFields(
+      { name: "🏆 Challenge Wins", value: `${stats.challengeWins}`, inline: true },
+      { name: "🎮 Challenges Played", value: `${stats.totalParticipated}`, inline: true },
+      { name: "📈 Win Rate", value: `${winRate}%`, inline: true },
+      { name: "✅ Correct Answers", value: `${stats.totalCorrect} / ${stats.totalAnswers}`, inline: true },
+      { name: "🎯 Accuracy", value: `${accuracy}%`, inline: true },
+      { name: "⚡ Best Avg Answer Time", value: best, inline: true },
+    )
+    .setTimestamp()
+    .setFooter({ text: "Play more challenges with /challenge!" });
 
   await interaction.editReply({ embeds: [embed] });
 }

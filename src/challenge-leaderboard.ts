@@ -22,6 +22,15 @@ export async function getTopChallengeLeaderboard(limit = 10) {
     .limit(limit);
 }
 
+export async function getChallengePlayerStats(discordUserId: string) {
+  const rows = await db
+    .select()
+    .from(challengeLeaderboardTable)
+    .where(eq(challengeLeaderboardTable.discordUserId, discordUserId))
+    .limit(1);
+  return rows.length > 0 ? rows[0] : null;
+}
+
 export async function recordChallengeResults(results: ChallengeResult[]): Promise<void> {
   for (const r of results) {
     const existing = await db
