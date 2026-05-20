@@ -95,6 +95,7 @@ export function createBot(): Client {
         else if (cmd.commandName === "challengeleaderboard") await handleChallengeLeaderboardCommand(cmd);
         else if (cmd.commandName === "challengestats") await handleChallengeStatsCommand(cmd);
         else if (cmd.commandName === "resetchallengestats") await handleResetChallengeStatsCommand(cmd);
+        else if (cmd.commandName === "checksongs") await handleCheckSongsCommand(cmd);
       } else if (interaction.isButton()) {
         await handleButtonInteraction(interaction as ButtonInteraction);
       }
@@ -668,6 +669,7 @@ async function handleHelpCommand(interaction: ChatInputCommandInteraction): Prom
           "`/resetleaderboard` — Wipe all quick-play scores",
           "`/resetchallengestats` — Wipe all challenge scores",
           "`/endchallenge` — Force-stop a running challenge",
+          "`/checksongs` — Scan the whole library for expired CDN audio URLs",
         ].join("\n"),
       },
       {
@@ -742,6 +744,61 @@ async function handleUploadSongCommand(interaction: ChatInputCommandInteraction)
     `🎵 This song will use your file for playback — no Deezer needed.\n` +
     `📚 Library now has **${count}** song${count === 1 ? "" : "s"}.`,
   );
+}
+
+async function handleCheckSongsCommand(interaction: ChatInputCommandInteraction): Promise<void> {
+  if (!hasModeratorRole(interaction)) { await replyNoPermission(interaction); return; }
+
+  await interaction.deferReply({ ephemeral: true });
+
+  const songs = await listSongs();
+  const withAudio = songs.filter((s) => s.audioUrl);
+
+  if (withAudio.length === 0) {
+    await interaction.editReply("📭 No songs in the library have uploaded audio files — nothing to check.");
+    return;
+  }
+
+  await interaction.editReply(`🔍 Checking **${withAudio.length}** uploaded audio URL${withAudio.length === 1 ? "" : "s"}… this may take a moment.`);
+
+  const expired: typeof withAudio = [];
+  const valid: typeof withAudio = [];
+
+  await Promise.all(
+    withAudio.map(async (song) => {
+      const ok = await isAudioUrlValid(song.audioUrl!);
+      if (ok) valid.push(song); else expired.push(song);
+    }),
+  );
+
+  if (expired.length === 0) {
+    await interaction.editReply(
+      `✅ All **${valid.length}** uploaded audio URL${valid.length === 1 ? "" : "s"} are valid — nothing to re-upload!`,
+    );
+    return;
+  }
+
+  const lines = expired.map((s) => `• [ID ${s.id}] **${s.title}** by ${s.artist}`);
+  const MAX_CHARS = 3800;
+  let body = lines.join("\n");
+  let truncated = false;
+  if (body.length > MAX_CHARS) {
+    body = body.slice(0, MAX_CHARS);
+    body = body.slice(0, body.lastIndexOf("\n"));
+    truncated = true;
+  }
+
+  const embed = new EmbedBuilder()
+    .setColor(0xed4245)
+    .setTitle(`⚠️ Expired Audio URLs — ${expired.length} of ${withAudio.length} songs affected`)
+    .setDescription(
+      `These songs have expired Discord CDN links and won't play. Re-upload each one with \`/uploadsong\`.\n\n${body}` +
+      (truncated ? "\n\n*…list truncated — run \`/listsongs\` to see all IDs.*" : ""),
+    )
+    .setFooter({ text: `${valid.length} URL${valid.length === 1 ? "" : "s"} still valid · ${expired.length} need re-uploading` })
+    .setTimestamp();
+
+  await interaction.editReply({ content: "", embeds: [embed] });
 }
 
 async function handleChallengeCommand(interaction: ChatInputCommandInteraction): Promise<void> {

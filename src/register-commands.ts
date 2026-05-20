@@ -91,6 +91,10 @@ const commands = [
       o.setName("url").setDescription("YouTube URL (optional)").setRequired(false),
     )
     .toJSON(),
+  new SlashCommandBuilder()
+    .setName("checksongs")
+    .setDescription("Scan the entire song library for expired Discord CDN URLs. Moderator only.")
+    .toJSON(),
 ];
 
 export async function registerCommands(): Promise<void> {
