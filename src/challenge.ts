@@ -183,19 +183,35 @@ async function tryVoicePlayback(
       "-f", "mp3", "-i", "pipe:0",
       "-f", "s16le", "-ar", "48000", "-ac", "2", "pipe:1",
     ]);
+
+    // Single cleanup path — kills ffmpeg and destroys the stream exactly once
+    let cleaned = false;
+    function cleanup() {
+      if (cleaned) return;
+      cleaned = true;
+      mp3Stream.unpipe(ffmpeg.stdin);
+      mp3Stream.destroy();
+      if (!ffmpeg.killed) ffmpeg.kill("SIGTERM");
+      destroyVoiceConnection(guildId);
+    }
+
     ffmpeg.on("error", (err: Error) =>
       console.error("[challenge/ffmpeg] Spawn error:", err.message),
     );
+    ffmpeg.on("close", (code) => {
+      if (code !== 0 && code !== null) console.warn(`[challenge/ffmpeg] Exited with code ${code}`);
+    });
     ffmpeg.stderr.on("data", () => {});
     ffmpeg.stdin.on("error", () => {});
     mp3Stream.pipe(ffmpeg.stdin);
 
     const resource = createAudioResource(ffmpeg.stdout, { inputType: StreamType.Raw });
     const player = createAudioPlayer();
-    player.on("error", (err) =>
-      console.error("[challenge/voice] Player error:", err.message),
-    );
-    player.on(AudioPlayerStatus.Idle, () => destroyVoiceConnection(guildId));
+    player.on("error", (err) => {
+      console.error("[challenge/voice] Player error:", err.message);
+      cleanup();
+    });
+    player.on(AudioPlayerStatus.Idle, () => cleanup());
 
     connection.subscribe(player);
     player.play(resource);
